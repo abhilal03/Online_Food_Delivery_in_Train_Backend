@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:th="http://www.thymeleaf.org"
+      layout:decorate="~{fragments/layout}">
+    <head>
+        <title>Foreign Exchange Rates</title>
+         <script type="text/javascript"
+        th:src="@{/webjars/jquery/3.5.1/jquery.min.js}"></script>
+        <script>
+            $(document).ready(function () {
+                $('.btn-link').on('click', function (event) {
+                    event.preventDefault();
+                    var href = $(this).attr('href');
+                    var linkIdentifier = $(this).attr('id');
+                    if (linkIdentifier == 'addForexRate') {
+                     $.get(href, function (response, status) {
+                     	 populateSourceCurrency(response);
+                     	 populateTargetCurrency(response);
+                     });
+                     $('.modalFormAddForexRate #modal-view-addforexrate').modal();
+                    }
+                });
+            });
+            
+            function populateSourceCurrency(response) {
+			$('#sourceCurrency').empty();
+			$('#sourceCurrency').append('<option value="">Select Currency</option>');
+			$.each(response.currencies, function(index, currency) {
+				var element ="<option value='" + currency.currencyName + "'>" + currency.currencyName +"</option>";
+				$(element).appendTo('#sourceCurrency'); 
+			});
+	}
+	
+	 function populateTargetCurrency(response) {
+            $('#targetCurrency').empty();
+            $('#targetCurrency').append('<option value="">Select Currency</option>');
+            $.each(response.currencies, function(index, item) {
+                    var element ="<option value='" + currency.currencyName + "'>" + currency.currencyName +"</option>";
+                    $(element).appendTo('#targetCurrency'); 
+            });
+	}
+    </script>
+                 
+    </head>
+    <body>
+        <div layout:fragment="content" th:remove="tag">
+            <nav class="nav">
+                <a class="nav-link" th:href="@{/forexratesxls}">Download </a>
+                <a class="nav-link btn-link" href="/forexrate/add" th:href="@{/forexrate/add}" oncontextmenu="return false" th:id ="addForexRate">Add Forex Rate</a>
+            </nav>
+            <div class="container-fluid">
+                <div class="row" style="margin-left: 1px;">
+                    <h1>Foreign Exchange Rates</h1>
+                </div>
+                 <div class="row" style="margin-left: 1px;">
+                    <a data-toggle="collapse" data-target="#filter-panel"><svg
+                            xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="feather feather-search align-middle mr-2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></a>
+                    <div id="filter-panel" class="filter-panel collapse"
+                         style="height: auto;">
+                        <div class="panel panel-default">
+                            <div class="panel-body">
+                                <form class="form-inline" th:action="@{/forexrate}"
+                                      th:object="${forexRate}" method="post">
+                                    <div class="form-group">
+                                        <input type="text" class="form-control form-control-sm"
+                                               name="sourceCurrency" placeholder="Search Source Currency">
+                                    </div>
+                                    <div class="form-group">
+                                        &nbsp;
+                                        <button type="submit" class="btn btn-sm btn-primary">Search</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div><br>
+                <div class="table-responsive text-nowrap">
+                    <table class="table w-auto table-sm">
+                        <tr>
+                            <th>Source Currency</th>
+                            <th>Target Currency</th>
+                            <th>Rate Effective Date</th>
+                            <th>Multiplier</th>
+                            <th></th>
+                        </tr>
+                        <tr th:if="${forexRates.empty}">
+                            <td colspan="5">No records. Click 
+                                <a href="/addforexrate"
+                                   th:href="@{/addforexrate}">Add Forex Rate</a> .
+                            </td>
+                        </tr>
+                        <tr th:buId="row-__${forexRate.id}__"
+                            th:each="forexRate : ${forexRates}">
+                            <td th:text="${forexRate.sourceCurrency}"></td>
+                            <td th:text="${forexRate.targetCurrency}"></td>
+                            <td th:text="${#dates.format(forexRate.startDate, 'MM-dd-yyyy')}"></td>
+                            <td th:text="${forexRate.multiplier}"></td>
+                            <td><i title="Edit Currency Trading">
+                                    <a th:href="@{'/forexrate/edit/' + ${forexRate.id}}">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            class="feather feather-edit align-middle mr-2">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></a></i></td>           
+                        </tr>
+                    </table>
+                    <div th:unless="${forexRates.empty}">
+                        <i><a th:href="@{|/forexrate/1|}"
+                              th:unless="${page} == 1"><svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="feather feather-chevrons-left align-middle" fill="none"
+                                    stroke="currentColor" stroke-linecap="round"
+                                    stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                    width="16" height="16">
+                                <polyline points="11,17 6,12 11,7" />
+                                <polyline points="18,17 13,12 18,7" /></svg> </a></i> <i><a
+                                th:href="@{'/forexrate/' + ${page - 1}}"
+                                th:unless="${page} == 1"> <svg
+                                    xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                    class="feather chevrons-left align-middle">
+                                <polyline points="15 18 9 12 15 6"></polyline></svg>
+                            </a></i><span th:utext="${page}"></span> of <span th:utext="${total}"></span>
+                        <i><a th:href="@{'/forexrate/' + ${page + 1}}"
+                              th:unless="${page} == ${total}"> <svg
+                                    xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                    class="feather chevrons-right  align-middle">
+                                <polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </a></i><i><a th:href="@{|/forexrate/${total}|}"
+                                      th:unless="${page} == ${total}"><svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="feather feather-chevrons-right align-middle" fill="none"
+                                    stroke="currentColor" stroke-linecap="round"
+                                    stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                    width="16" height="16">
+                                <polyline points="13,17 18,12 13,7" />
+                                <polyline points="6,17 11,12 6,7" /></svg> </a></i>
+                    </div>
+                </div>
+                
+                  <!--  Add FOREX Rate Modal -->
+                <div class="modalFormAddForexRate">
+                    <div class="modal modal-warning fade" th:id="modal-view-addforexrate" 
+                         role="dialog" data-keyboard="false" data-backdrop="static">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <span>Add Business Unit</span>
+                                    <button type="button" class="close" data-target="#myModal"
+                                            data-dismiss="modal">&times;</button>
+                                </div>
+                                <div class="modal-body">
+                                    <div id="addForexRateMessage" class="alert alert-danger d-none"></div>
+                                    <form method="POST" th:action="@{/forexrate/add}" th:object="${forexRate}" th:id="addForexRateForm">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label for="sourceCurrency" class="required">Source
+                                                            Currency</label> <select required th:id="sourceCurrency"
+                                                            th:name="sourceCurrency" class="form-control">
+                                                            <option value="">Select Currency</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label for="targetCurrency" class="required">Target
+                                                            Currency</label> <select required th:id="targetCurrency"
+                                                            th:name="targetCurrency" class="form-control">
+                                                            <option value="">Select Currency</option>									
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                        <label class="required">Effective Start Date</label>
+                                                        <div class="input-group date" data-provide="datepicker"
+                                                                data-date-format="mm/dd/yyyy">
+                                                                <input th:id="startDate" th:name="startDate" type="text" required
+                                                                        class="form-control" placeholder="MM/DD/YYYY"
+                                                                        autocomplete="off"></input>
+                                                                <div class="input-group-addon"></div>
+                                                        </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                    <div class="form-group">
+                                                            <label for="multiplier" class="required">Multiplier</label> <input
+                                                                    required th:type="number" step="any" th:id="multiplier" th:name="multiplier"
+                                                                    class="text-right form-control" />
+                                                    </div>
+                                            </div>
+                                        </div>
+                                        <div class="text-left">
+                                                <button type="submit" class="btn btn btn-primary" name="save"
+                                                        value="Save">Save</button>
+                                                 <button type="button" class="btn btn-primary" data-dismiss="modal" 
+                                            th:id="cancel">Cancel</button>
+                                        </div>
+					
+				</form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>    
+                </div>
+                <!-- End of Add FOREX Rate Modal -->
+            </div>
+        </div>
+    </body>
+</html>
