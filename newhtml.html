@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity4"
+      layout:decorate="~{fragments/layout}">
+    <head>
+        <title>Jobs</title>
+        <script type="text/javascript"
+        th:src="@{/webjars/jquery/3.5.1/jquery.min.js}"></script>
+
+        <script>
+            $(document).ready(function () {
+                $('.btn-link').on('click', function (event) {
+                    event.preventDefault();
+                    var href = $(this).attr('href');
+                    var linkIdentifier = $(this).attr('id');
+                    if (linkIdentifier == 'schedulejob') {
+                        clearErrorMessage('#notification');
+                        $('#save').show();
+                        $('#jobName').val('');
+                        $('#jobId').val('');
+                        $('#cronExpression').val('');
+                        $.get(href, function (response, status) {
+                            $('#jobName').val(response.jobName);
+                            $('#jobId').val(response.jobId);
+                        });
+                        $('.modalForm #modal-view').modal();
+                    }
+                    if (linkIdentifier == 'jobstatus') {
+                        $.get(href, function (response, status) {
+                            populateSchedulerStatus(response);
+                        });
+                        $('.modalScheduleStatusForm #modal-status-view').modal();
+                    }
+                });
+
+                $("#schedulejobform").submit(
+                        function (e) {
+                            var action = $('#schedulejobform').attr('action');
+                            e.preventDefault();
+                            $.post({
+                                url: action,
+                                data: $('#schedulejobform').serialize(),
+                                success: function (response) {
+                                    if (response.errorMessage) {
+                                        clearErrorMessage('#notification');
+                                        showErrorMessage('#notification', response.errorMessage);
+                                        $('#save').hide();
+                                    } else {
+                                        clearErrorMessage('#notification');
+                                        showErrorMessage('#notification', 'You have successfully scheduled the job.');
+                                        $('#save').hide();
+                                    }
+                                },
+                                error: function (e) {
+                                    $('#notification').val("An error occurred." + e);
+                                }
+                            })
+                        });
+            });
+
+            function populateSchedulerStatus(response) {
+                $('#job_status_table tbody').empty();
+                if (response[0] == null) {
+                    var element = "<tr><td colspan='4'>No records found.</td></tr>";
+                    $(element).appendTo('#job_status_table tbody');
+                } else {
+                    var i = 0;
+                    $.each(response, function (index, jobExecutions) {
+                        var element = "<tr id=" + response[i].jobId + ">"
+                                + "<td>" + response[i].formattedStartDate + "</td>"
+                                + "<td>" + response[i].formattedEndDate + "</td>"
+                                + "<td class='text-right'>" + response[i].jobRunDuration + "</td>"
+                                + "<td>" + response[i].jobStatus + "</td>"
+                                + "<td>" + response[i].jobScheduleError + "</td></tr>";
+                        $(element).appendTo('#job_status_table tbody');
+                        i++;
+                    });
+                    i = 0;
+                }
+            }
+
+            function showErrorMessage(identifier, message) {
+                $(identifier).html(message);
+                $(identifier).removeClass("d-none");
+            }
+
+            function clearErrorMessage(identifier) {
+                $(identifier).html("");
+                $(identifier).addClass("d-none");
+            }
+            function reload() {
+                location.reload();
+            }
+        </script>
+    </head>
+    <body>
+        <div layout:fragment="content" th:remove="tag">
+            <nav class="nav">
+                <a class="nav-link" sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_OPERATIONS')" th:href="@{'/job'}">Back</a> 
+            </nav>
+            <div class="container-fluid">
+                <div class="page-header">
+                    <h1>Scheduler Jobs</h1>
+                </div>
+                <div th:if="${error!=null}">
+                    <table class="table w-auto">
+                        <tr class="table-info">
+                            <td th:text="${error}" class="error text-danger"></td>
+                        </tr>
+                    </table>
+                </div>
+                <br>
+                <div class="table-responsive text-nowrap">
+                    <table class="table w-auto table-sm">
+                        <tr>
+                            <th>Job</th>
+                            <th class="text-right"></th>
+
+                            <th>Current Frequency</th>
+                            <th>Status</th>
+                            <th class="text-right"></th>
+                            <th class="text-right">Run Now</th>
+
+                            <th class="text-right"></th>
+                        </tr>
+                        <tr th:id="row-__${job.jobId}__" th:each="job: ${jobs}">
+                            <td th:text="${job.jobName}"></td>
+                            <td class="text-center"><i title="Schedule/Update With New Frequency"><a class="btn-link" oncontextmenu="return false"
+                                                                                                     th:id="schedulejob" th:href="@{'/job/schedulejob/jobid/'+${job.jobId}}"><svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            class="feather feather-clock align-middle mr-2" fill="none"
+                                            stroke="currentColor" stroke-linecap="round"
+                                            stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                            width="16" height="16">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <polyline points="12,6 12,12 16,14" /></svg> </a></i></td>
+
+
+                            <td class="text-center" th:text="${job.cronExpression}"></td>
+                            <td th:text="${job.getSchedulerStatus()} ? 'Active' :'In Active'" class="text-center" th:classappend="${job.getSchedulerStatus()} ? 'text-success' : text-danger"></td>
+                            <td class="text-center" th:if="${job.schedulerStatus == 1}"><a 
+                                    onclick="return confirm('Are you sure you want to cancel this job?');"
+                                    th:href="@{'/job/canceljob/jobid/'+${job.jobId}}"> Enable
+                                </a></td>
+                            <td class="text-center" th:if="${job.schedulerStatus == 0}"><a
+                                    onclick="return confirm('Are you sure you want to restart this job?');"
+                                    th:href="@{'/job/restartjob/jobid/'+${job.jobId}}">
+                                    Disable
+                                </a></td>
+                            <td class="text-center"><i title="Run Now"><a th:href="@{'/job/schedule/jobid/'+${job.jobId}}"> 
+                                        <svg xmlns="http://www.w3.org/2000/svg" 
+                                             class="feather feather-play-circle align-middle mr-2" 
+                                             fill="none" stroke="currentColor" stroke-linecap="round" 
+                                             stroke-linejoin="round" stroke-width="2" 
+                                             viewBox="0 0 24 24" width="16" height="16">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <polygon points="10,8 16,12 10,16 10,8" /></svg>
+                                    </a></i></td>
+                            <td> <i title="Running Status Report"><a class="btn-link" oncontextmenu="return false"
+                                                                     th:id="jobstatus"
+                                                                     th:href="@{'/job/schedule/status/jobid/'+${job.jobId}}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" 
+                                             class="feather feather-list align-middle mr-2" 
+                                             fill="none" stroke="currentColor" stroke-linecap="round" 
+                                             stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" 
+                                             width="16" height="16"><line x1="8" y1="6" x2="21" y2="6" />
+                                        <line x1="8" y1="12" x2="21" y2="12" />
+                                        <line x1="8" y1="18" x2="21" y2="18" />
+                                        <line x1="3" y1="6" x2="3.01" y2="6" />
+                                        <line x1="3" y1="12" x2="3.01" y2="12" />
+                                        <line x1="3" y1="18" x2="3.01" y2="18" />
+                                        </svg>
+                                    </a></i>
+                            </td>
+                        </tr>
+
+                    </table>
+                </div>
+
+                <div class="modalForm">
+                    <div class="modal modal-warning fade" th:id="modal-view"
+                         role="dialog">
+                        <div class="modal-dialog">
+                            <!-- Modal content-->
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <span id="heading">Scheduler Job</span>
+                                    <button type="button" class="close" data-target="#myModal"
+                                            data-dismiss="modal">&times;</button>
+                                </div>
+                                <div class="modal-body">
+                                    <div id="notification" class="alert alert-danger d-none"></div>
+                                    <form class="form-horizontal" id="schedulejobform" th:object="${job}"
+                                          th:action="@{'/job/schedulejob'}" method="post">
+                                        <div class="row">
+                                            <div class="col-md-12">
+                                                <div class="form-group">
+                                                    <label class="required">Job</label> <input readonly
+                                                                                               type="text" th:name="jobName" th:id="jobName"
+                                                                                               class="form-control" />
+                                                </div>
+                                                <div class="form-group">
+
+                                                    <input readonly type="text" th:name="jobId" th:id="jobId"
+                                                           class="form-control d-none" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-12">
+                                                <div class="form-group">
+                                                    <label class="required">Cron Expression</label><small>
+                                                        (Enter 0 0 12 * * ? for 12pm) </small> <input required
+                                                                                                  type="text" th:name="cronExpression" th:id="cronExpression"
+                                                                                                  class="form-control" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="text-left">
+                                            <button type="submit" class="btn btn btn-primary" name="save"
+                                                    id="save" value="save">Schedule</button>
+                                            <button type="submit" class="btn btn btn-primary"
+                                                    name="cancel" id="cancelButton" data-dismiss="modal"
+                                                    value="Cancel" onClick='reload()'>Close</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modalScheduleStatusForm">
+                    <div class="modal modal-warning fade" th:id="modal-status-view"
+                         role="dialog">
+                        <div class="modal-dialog modal-dialog-scrollable">
+                            <!-- Modal content-->
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <span id="heading">Running Status Report</span>                                  
+                                </div>
+                                <div class="modal-body">
+                                    <table class="table table-sm w-auto table-hover"
+                                           id="job_status_table">
+                                        <thead>
+                                            <tr>
+                                                <th>Start Date</th>
+                                                <th>End Date</th>
+                                                <th class="text-right">Run Duration(seconds)</th>
+                                                <th>Status</th>
+                                                <th>Error</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-primary"
+                                            data-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
+
+
